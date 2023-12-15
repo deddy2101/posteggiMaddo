@@ -11,15 +11,20 @@ Cancello::Cancello() : radio(CE, CSN)
     // Initialize addresses array
     static const byte _addresses[][6] = {"00001", "00002"};
     addresses = _addresses;
+    currentTime = 0;
+    delayTime = 5000;
     packetID = 0;
     delayTime = 5000;
 }
 
 void Cancello::begin()
 {
+    
     Serial.begin(baudRate); // init serial
     pinMode(GATE_RELAY_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
     digitalWrite(GATE_RELAY_PIN, LOW);
     delay(2000); // wait some time to not miss the first message
     Serial.printf("\033[1;32m[I] SPI pins: SCK = %d, MISO = %d, MOSI = %d, SS = %d\n\033[0m", SCK, MISO, MOSI, SS);
@@ -31,9 +36,9 @@ void Cancello::begin()
     Serial.printf("\033[1;32m[I] Radio started\n\033[0m");
     radio.openWritingPipe(addresses[0]);    // 00001
     radio.openReadingPipe(1, addresses[1]); // 00002
-    radio.setPALevel(RF24_PA_MIN);
+    radio.setPALevel(RF24_PA_HIGH);
     radio.startListening();
-    this->handshake();
+    this->handshake();    
 }
 
 void Cancello::handshake()
@@ -65,6 +70,14 @@ void Cancello::receiveData()
             Serial.printf("\033[1;32m[I] alive recived \n\033[0m");
             // send back the data
             this->sendData(data);
+            //reset the timer for alive
+            currentTime = millis();
+            if (blinking == true)
+            {
+                blinking = false;
+                timer.detach();
+                digitalWrite(LED_BUILTIN, HIGH);
+            }
         }
         break;
     case PACKET_TYPE_OPEN_GATE:
@@ -106,75 +119,16 @@ void Cancello::loop()
     {
         receiveData();
     }
+    // if the timer is expired 
+    if (millis() - currentTime > delayTime && blinking == false)
+    {
+        blinking = true;
+        timer.attach(0.5, blinkError);
+    }
 }
 
-void R2D2()
-{
-    int beeps[] = {1933, 2156, 1863, 1505, 1816, 1933, 1729, 2291};
-    int buzzVols[] = {144, 180, 216, 252, 252, 252, 252, 216, 180, 144};
-
-    int i = 9;
-    while (i >= 0)
-    {
-        tone(BUZZER_PIN, 1050, buzzVols[i] * 4);
-        delayMicroseconds(20 * 64);
-        noTone(BUZZER_PIN);
-        delayMicroseconds(40 * 64);
-        i--;
-    }
-
-    delay(35);
-
-    i = 0;
-    while (i < 8)
-    {
-        int v = 0;
-        while (v < 250)
-        { // 12.5 mS fade up time
-            tone(BUZZER_PIN, beeps[i], v * 4);
-            v += 10;
-            delayMicroseconds(2 * 64);
-        }
-        delay(20);
-        v = 250;
-        while (v > 0)
-        { // 12.5 mS fade down time
-            tone(BUZZER_PIN, beeps[i], v * 4);
-            v -= 10;
-            delayMicroseconds(5 * 64);
-        }
-        noTone(BUZZER_PIN);
-        delay(25);
-        i++;
-    }
-
-    int f = 2466;
-    while (f < 2825)
-    {
-        tone(BUZZER_PIN, f, 1023);
-        f += 3;
-        delay(1);
-    }
-    f = 2825;
-    int v = 255;
-    while (f > 2000)
-    {
-        tone(BUZZER_PIN, f, v * 4);
-        f -= 6;
-        v -= 1;
-        delay(1);
-    }
-    noTone(BUZZER_PIN);
-    delay(35);
-
-    i = 10;
-    while (i > 0)
-    {
-        tone(BUZZER_PIN, 1050, buzzVols[i] * 4);
-        delayMicroseconds(20 * 64);
-        tone(BUZZER_PIN, 1050, buzzVols[i] / 8 * 4);
-        delayMicroseconds(40 * 64);
-        i--;
-    }
-    noTone(BUZZER_PIN);
+bool ledState = false;
+void Cancello::blinkError(){
+    ledState = !ledState;
+    digitalWrite(LED_BUILTIN, ledState);
 }

@@ -5,18 +5,22 @@
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+#include <Ticker.h>
+#include <functional> // for std::bind
 
 
 class Cancello
 {
 private:
     RF24 radio;
+    Ticker timer;
     const byte (*addresses)[6];
     long packetID;
     int delayTime;
     long currentTime;
-    const uint8_t CSN = 13;
-    const uint8_t CE = 12;
+    bool blinking;
+    #define CSN 13
+    #define CE  12
     const unsigned long baudRate =9600;
     struct DataStruct
     {
@@ -42,6 +46,7 @@ private:
     void handshake();   // Handshake with the remote it uses the sendData function
     bool sendData(DataStruct data); // Send data to the remote
     void receiveData(); // Receive data from the remote
+    static void blinkError(); // Blink the builtin led to signal an error
 };
 
 #endif // CANCELLO_H
