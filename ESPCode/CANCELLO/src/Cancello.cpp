@@ -26,6 +26,7 @@ void Cancello::begin()
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH);
     digitalWrite(GATE_RELAY_PIN, LOW);
+
     delay(2000); // wait some time to not miss the first message
     Serial.printf("\033[1;32m[I] SPI pins: SCK = %d, MISO = %d, MOSI = %d, SS = %d\n\033[0m", SCK, MISO, MOSI, SS);
     while (!radio.begin())
@@ -36,9 +37,11 @@ void Cancello::begin()
     Serial.printf("\033[1;32m[I] Radio started\n\033[0m");
     radio.openWritingPipe(addresses[0]);    // 00001
     radio.openReadingPipe(1, addresses[1]); // 00002
-    radio.setPALevel(RF24_PA_HIGH);
+    radio.setPALevel(RF24_PA_MAX);
     radio.startListening();
-    this->handshake();    
+    this->handshake();
+
+       
 }
 
 void Cancello::handshake()
@@ -97,6 +100,7 @@ void Cancello::receiveData()
     }
 }
 
+//send data to the remote and it automatically updates the packetID
 bool Cancello::sendData(DataStruct data)
 {
     // stop listening

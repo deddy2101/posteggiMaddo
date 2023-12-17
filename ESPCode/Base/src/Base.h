@@ -7,6 +7,7 @@
 #include <RF24.h>
 #include <Ticker.h>
 
+#define BLUE_LED 39
 class Base
 {
 private:

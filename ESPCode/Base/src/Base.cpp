@@ -32,8 +32,9 @@ Base::Base() : radio(CE, CSN)
 void Base::begin()
 {
     Serial.begin(baudRate); // init serial
+    pinMode(BLUE_LED, OUTPUT);
     pinMode(LED_BUILTIN, OUTPUT);
-    delay(2000);            // wait some time to not miss the first message
+    delay(2000); // wait some time to not miss the first message
     Serial.printf("\033[1;32m[I] SPI pins: SCK = %d, MISO = %d, MOSI = %d, SS = %d\n\033[0m", SCK, MISO, MOSI, SS);
     while (!radio.begin())
     { // start the radio
@@ -43,7 +44,7 @@ void Base::begin()
     Serial.printf("\033[1;32m[I] Radio started\n\033[0m");
     radio.openWritingPipe(addresses[1]);    // 00002
     radio.openReadingPipe(1, addresses[0]); // 00001
-    radio.setPALevel(RF24_PA_HIGH);
+    radio.setPALevel(RF24_PA_MAX);
     radio.startListening();
     this->handshake();
 }
@@ -65,7 +66,6 @@ void Base::handshake()
             blinking = true;
             timer.attach_ms(500, blinkError);
         }
-
     }
     // now the radio should respond to the handshake with "Ciao"
     Serial.printf("\033[1;36m[I] Packet sent waiting for ack \n\033[0m");
@@ -73,6 +73,7 @@ void Base::handshake()
 
 bool Base::sendData(DataStruct data, bool incrementPacketID)
 {
+    digitalWrite(BLUE_LED, HIGH);
     // stop listening
     radio.stopListening();
     // increase the packetID
@@ -92,6 +93,7 @@ bool Base::sendData(DataStruct data, bool incrementPacketID)
     }
     // start listening
     radio.startListening();
+    digitalWrite(BLUE_LED, LOW);
     // return the result
     return result;
 }
@@ -112,7 +114,7 @@ void Base::receiveData()
             // reset the timer for the handshake
             currentTime = millis();
             handshaking = false;
-             if (blinking == true)
+            if (blinking == true)
             {
                 blinking = false;
                 timer.detach();
@@ -127,7 +129,7 @@ void Base::receiveData()
     case PACKET_TYPE_TAG_ID:
         // this packet have to be forearded via serial to the computer with a serial.write
         Serial.printf("\033[1;32m[I] Tag ID recived: %s\n\033[0m", data.data);
-        Serial.write(data.data);
+        Serial.write((uint8_t *)&data, sizeof(data));
         break;
     default:
         break;
@@ -149,7 +151,7 @@ void Base::loop()
     {
         receiveData();
     }
-    
+
     // if we recive a serial message from the pc
     if (Serial.available())
     {
