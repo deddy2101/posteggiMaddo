@@ -34,6 +34,7 @@ void Base::begin()
     Serial.begin(baudRate); // init serial
     pinMode(BLUE_LED, OUTPUT);
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(BUTON, INPUT_PULLUP);
     delay(2000); // wait some time to not miss the first message
     Serial.printf("\033[1;32m[I] SPI pins: SCK = %d, MISO = %d, MOSI = %d, SS = %d\n\033[0m", SCK, MISO, MOSI, SS);
     while (!radio.begin())
@@ -44,7 +45,7 @@ void Base::begin()
     Serial.printf("\033[1;32m[I] Radio started\n\033[0m");
     radio.openWritingPipe(addresses[1]);    // 00002
     radio.openReadingPipe(1, addresses[0]); // 00001
-    radio.setPALevel(RF24_PA_MAX);
+    radio.setPALevel(RF24_PA_LOW);
     radio.startListening();
     this->handshake();
 }
@@ -53,7 +54,12 @@ void Base::handshake()
 {
     handshaking = true; // set the handshaking flag to true
     // the handshake function should be called in the setup function to acknoledfe thet the remote is online
-    strcpy(data.data, "Ciao"); // copy the string "Ciao" in the data.data array
+    data.data[0] = HANDSHAKE_PACKET;
+    // set to null the rest of the data
+    for (int i = 1; i < 4; i++)
+    {
+        data.data[i] = 0;
+    }
     data.packetType = PACKET_TYPE_HANDSHAKE;
     int i = 0;
     while (!this->sendData(data)) // send the data
@@ -104,12 +110,12 @@ void Base::receiveData()
     // get the packetID and update the packetID
     packetID = data.packetID;
     Serial.printf("\033[1;35m[I] PacketID: %d\n\033[0m", data.packetID);
-    Serial.printf("\033[1;35m[I] Data: %s\n\033[0m", data.data);
     switch (data.packetType)
     {
     case PACKET_TYPE_HANDSHAKE:
-        if (strcmp(data.data, HANDSHAKE_STRING) == 0)
+        if (data.data[0] == HANDSHAKE_PACKET)
         {
+            Serial.printf("\033[1;35m[I] Data: %s\n\033[0m", data.data);
             Serial.printf("\033[1;37m[I] alive recived \n\033[0m");
             // reset the timer for the handshake
             currentTime = millis();
@@ -127,9 +133,25 @@ void Base::receiveData()
         Serial.printf("\033[1;31m[E] Error recived open gate packet from the other station\n\033[0m");
         break;
     case PACKET_TYPE_TAG_ID:
+        //signing = false;
         // this packet have to be forearded via serial to the computer with a serial.write
-        Serial.printf("\033[1;32m[I] Tag ID recived: %s\n\033[0m", data.data);
-        Serial.write((uint8_t *)&data, sizeof(data));
+        // tag id recived print it
+        Serial.printf("\033[1;32m[I] The dimension of data is: %d\n\033[0m", sizeof(data));
+        Serial.printf("\033[1;32m[I] Tag id recived: \n\033[0m");
+        for (int i = 0; i < 4; i++)
+        {
+            Serial.print(data.data[i], HEX);
+            Serial.print(", ");
+        }
+        Serial.println();
+        //respond with an open gate packet
+        data.packetType = PACKET_TYPE_OPEN_GATE;
+        data.data[0] = 0;
+        data.data[1] = 0;
+        data.data[2] = 0;
+        data.data[3] = 0;
+        sendData(data);
+
         break;
     default:
         break;
@@ -139,7 +161,7 @@ void Base::receiveData()
 void Base::loop()
 {
     // run the handshake every x seconds
-    if (millis() - currentTime > delayTime && !handshaking)
+    if (millis() - currentTime > delayTime && !handshaking )
     {
         // print that we are starting the handshake in the serial monitor orange
         Serial.printf("\033[1;34m[W] Starting alive check\n\033[0m");
@@ -151,20 +173,16 @@ void Base::loop()
     {
         receiveData();
     }
-
-    // if we recive a serial message from the pc
-    if (Serial.available())
-    {
-        // the message has the same structure of the data struct
-        // so we can just copy the message in the data struct
-        Serial.readBytes(data.data, sizeof(data.data));
-        // check if the message is a OPEN_GATE message
-        if (strcmp(data.data, "OPEN_GATE") == 0)
-        {
-            // if it is send the packet to the remote
-            data.packetType = PACKET_TYPE_OPEN_GATE;
-            this->sendData(data);
-        }
+    if(digitalRead(BUTON) == LOW){
+        Serial.printf("\033[1;32m[I] Button pressed\n\033[0m");
+        data.packetType = PACKET_TYPE_SIGN_TAG;
+        data.data[0] = 0;
+        data.data[1] = 0;
+        data.data[2] = 0;
+        data.data[3] = 0;
+        sendData(data);
+        delay(500);
+        //signing = true;
     }
 }
 

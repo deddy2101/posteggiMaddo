@@ -100,6 +100,8 @@ byte *CardReader::readCard()
             {
                 Serial.printf("\033[1;31m[E] Access denied at block 0x%x\n\033[0m", i);
             }
+        } else {
+            Serial.printf("\033[1;31m[E] Access denied at block 0x%x\n\033[0m", i);
         }
 
         // Stop the tag and get ready for reading a new tag.
@@ -121,6 +123,7 @@ byte *CardReader::readCard()
         if (deddy)
             return serial;
         else
+            Serial.printf("\033[1;31m[E] The sign is not correct\n\033[0m");
             return NULL;
     }
     else

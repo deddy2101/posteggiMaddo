@@ -21,21 +21,24 @@ private:
     bool handshaking;
     uint lostPackets;
     bool blinking;
+    bool signing;
     #define CSN  13
     #define CE  12
-    const unsigned long baudRate =9600;
+    #define BUTON 17
+    const unsigned long baudRate =115200;
     struct DataStruct
     {
         long packetID;
         uint8_t packetType;
-        char data[32];
+        byte data[4];
     };
     DataStruct data;
     #define PACKET_TYPE_HANDSHAKE 0
     #define PACKET_TYPE_OPEN_GATE 1
     #define PACKET_TYPE_TAG_ID 2
-    //define the string for handshaking
-    #define HANDSHAKE_STRING "Ciao"
+    #define PACKET_TYPE_SIGN_TAG 3
+    //define the byte for the packet handshaking is c in ascii written in binary
+    #define HANDSHAKE_PACKET 0b1100011
 
 public:
     Base(); // Constructor
